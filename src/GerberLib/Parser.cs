@@ -11,32 +11,25 @@ using Sprache;
 
 namespace GerberLib
 {
-    public class ExtendedCommandParser<P>
-    {
-
-
-        public void ParseCmd()
-        {
-
-        }
-    }
-
     public class Parser
     {
+        private readonly CommandsFactory factory;
         private StreamReader _streamReader;
         private char[] buffer = new char[1024];
+
+        public Parser(CommandsFactory factory)
+        {
+            this.factory = factory;
+        }
+
         public Parser(string filepath)
         {
-            var stream = new MemoryStream();
-            var writer = new StreamWriter(stream);
-            writer.Write("af54651g1232*");
-            writer.Flush();
-            stream.Position = 0;
-            _streamReader = new StreamReader(stream);
+            FileStream fs = new FileStream(filepath, FileMode.Open, FileAccess.Read);
+            _streamReader = new StreamReader(fs);
         }
 
 
-        public Command GetNextCommand()
+        public Command GetNextCommand(GerberContext context)
         {
             var cmdParser = Parse.IgnoreCase('G').Or(Parse.IgnoreCase('D')).Or(Parse.IgnoreCase('M'));
             Parser<FunctionCodeCommandData> functionCodeCommandParser =
@@ -46,18 +39,16 @@ namespace GerberLib
                 from end in Parse.Char('*')
                 select new FunctionCodeCommandData(cmd, Convert.ToInt32(number), data);
 
-
-
             var strCmd = GetNextCommandString();
             var functionCmd = functionCodeCommandParser.TryParse(strCmd);
             if (functionCmd.WasSuccessful)
             {
-
+                return factory.GetFunctionCodeCommand(context, functionCmd.Value);
             }
             var extendedCmd = new ExtendedCommandParser().GetParser().TryParse(strCmd);
             if (extendedCmd.WasSuccessful)
             {
-
+                return factory.GetExtendedCommand(extendedCmd.Value);
             }
 
             return null;
